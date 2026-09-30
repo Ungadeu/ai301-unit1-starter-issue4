@@ -36,4 +36,4 @@ Including remove identity, fuse spiders, remove self loops, etc.
 
 ## Comments (0 total, first 0 shown)
 
-(no comments)
+Hi, I'd like to take this as a first contribution. In Proof mode, I'll check which of the basic rules (remove identity, fuse spiders, remove self loops) show no preview, then look at how the rules that do have previews are set up, and report back what I find. I will set up the environment to run tests and investigate the bug.
