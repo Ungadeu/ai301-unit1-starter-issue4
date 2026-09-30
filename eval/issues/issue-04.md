@@ -37,3 +37,5 @@ Including remove identity, fuse spiders, remove self loops, etc.
 ## Comments (1 total, first 0 shown)
 
 Hi, I'd like to take this as a first contribution. In Proof mode, I'll check which of the basic rules (remove identity, fuse spiders, remove self loops) show no preview, then look at how the rules that do have previews are set up, and report back what I find. I will set up the environment to run tests and investigate the bug.
+
+What I found: A rule's preview comes from its "picture" key in zxlive/rewrite_data.py, and only 4 Basic rules have one. zxlive/tooltips/ already contains remove_id.gif, fuse_spiders.gif, change_color_x.gif, change_color_z.gif and decompose_hadamard.gif, but no rule references them. I haven't checked whether they're the intended previews or whether GIFs render in the tooltip. I found no picture files for self-loops, parallel edges or unfuse.
