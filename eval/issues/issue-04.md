@@ -43,25 +43,25 @@ What I found: A rule's preview comes from its "picture" key in zxlive/rewrite_da
 <- Hi! Here is my plan for fixing this issue:
 
 **What I found (Diagnosis):**
-Based on the reproduction (`QT_QPA_PLATFORM=offscreen .venv/bin/python check_previews.py` on `main` at `d2f302c` printed `NO PREVIEW` for 8 of the 12 Basic rules, including Remove identity, Fuse spiders and Remove self-loops), the root cause is in `zxlive/rewrite_data.py` within the `rules_basic` dict, where those entries have no `"picture"` key. `RewriteAction.from_rewrite_data()` then sets `picture_path = None`, so the `tooltip` property returns plain text.
+Based on the reproduction (`QT_QPA_PLATFORM=offscreen .venv/bin/python check_previews.py` on `d2f302c` printed `NO PREVIEW` for 8 of the 12 Basic rules), the root cause is in `zxlive/rewrite_action.py` within `RewriteAction.from_rewrite_data()`. That function only sets `picture_path` when the rule's data has a `"picture"` file or `"custom_rule"`, and those 8 entries in `rules_basic` have neither, so the tooltip falls back to plain text.
+
+One thing I checked: the GIFs in `zxlive/tooltips/` are not the missing previews. They're multi-frame demo clips, and `QPixmap.load()` only reads frame 0, which shows the old sidebar and the graph *before* the rewrite.
 
 **What I'll do (Scope & Approach):**
-- Update `rules_basic` in `zxlive/rewrite_data.py` to add a `"picture"` key for the rules that already have an image in `zxlive/tooltips/`:
-  - `id_simp` → `remove_id.gif`
-  - `fuse_simp` → `fuse_spiders.gif`
-  - `euler` → `decompose_hadamard.gif`
-  - `cc` → `change_color_z.gif`
-- Add a regression test in `test/test_rewrite_previews.py`. It builds each of those four rules with `RewriteAction.from_rewrite_data()` and asserts that its `tooltip` contains an `<img`. It also checks that the pixmap loaded from the picture file is not null, so a GIF that Qt can't read fails the test instead of showing a blank preview.
-- Out of scope: I will not modify any external APIs, CLI flags, or unrelated files. I also won't create new artwork. Remove self-loops, Remove parallel edges and Unfuse spider have no image in `zxlive/tooltips/`, so they will still show text only after this change.
+- Generate the previews in code instead of adding images. `tooltip` can already render a `lhs` = `rhs` picture from two graphs (the `'custom'` path used by custom rules).
+  - New `zxlive/rule_previews.py`: a tiny example graph for each of Remove identity, Fuse spiders, Remove self-loops, Remove parallel edges, Colour change and Decompose Hadamard. Each `rhs` is made by applying the real pyzx rule to the example, so the picture always matches what the rule does.
+  - Unfuse spider reuses the fuse example in reverse, since `UnfusionRewrite.apply()` is interactive.
+  - `rewrite_data.py` attaches these as `lhs`/`rhs` on `rules_basic`.
+  - Update `RewriteAction.from_rewrite_data()` in `zxlive/rewrite_action.py` with one branch: `lhs`/`rhs` present and no `"picture"` → `picture_path = 'custom'`. I won't set `custom_rule`, so `is_custom_rule` stays `False`.
+- Add a regression test in `test/test_rule_previews.py`. It checks that each of the 7 rules' tooltip has an `<img>`, and that each generated `rhs` is tensor-equal to its `lhs` (`pyzx.compare_tensors`).
+- Out of scope: I will not modify any external APIs, CLI flags, or unrelated files. That includes the existing image assets, the look of the `'custom'` renderer, other rule groups, and "Save changed positions", which isn't a graph rewrite, so it stays text-only.
 
 **How I'll prove it (Test Plan):**
-- Re-run the reproduction steps (`QT_QPA_PLATFORM=offscreen .venv/bin/python check_previews.py`). The output currently shows `NO PREVIEW  Remove identity`, `NO PREVIEW  Fuse spiders`, `NO PREVIEW  Colour change` and `NO PREVIEW  Decompose Hadamard`. After the fix it will show `PREVIEW` for those four. The 4 rules that already show a preview stay `PREVIEW`, and the 4 without an image stay `NO PREVIEW`.
-- Run `pytest` on `test/test_rewrite_previews.py` to ensure all tests pass, then run the full `pytest test/` suite to check nothing else broke.
+- Re-run the reproduction steps (`QT_QPA_PLATFORM=offscreen .venv/bin/python check_previews.py`). The output currently shows 8 `NO PREVIEW` lines, and after the fix will show `PREVIEW` for 11 of 12 rules, with only `NO PREVIEW  Save changed positions` left.
+- Run `pytest` on `test/test_rule_previews.py` to ensure all tests pass, plus `pytest test/`, `mypy zxlive`, `ruff check` and `complexipy . --max-complexity-allowed 15` as in CI.
 
-**Questions before I start:**
-- The existing previews are all `.png`, but the matching files here are `.gif`. Are these GIFs the intended previews? If not, would you rather I leave those rules for now?
-- For Colour change there are both `change_color_x.gif` and `change_color_z.gif`. Is one of them preferred?
-- Remove self-loops is named in the issue, but there's no image for it. Should I make one in the style of the existing previews as a follow-up, or is someone else handling the artwork?
+**Before I start:** I prototyped this locally and the pictures look right, but they're in the app's own graph style rather than your hand-drawn PNGs. Are generated previews OK for these rules, or would you rather have PNGs to match the existing ones?
 
-*(Note: Prepared with AI assistance via Claude Code.)* ->
+*(Note: Prepared with AI assistance via Claude Code.)*
+ ->
 
